@@ -1,0 +1,6 @@
+{
+  "name": "cache-keeper",
+  "description": "The cache-keeper mod: keeps an idle session's prompt cache warm, then hands off before it goes cold.",
+  "owner": { "name": "razzamatazm" },
+  "plugins": [{ "name": "cache-keeper", "source": "./" }]
+}

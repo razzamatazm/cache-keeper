@@ -1,0 +1,6 @@
+{
+  "name": "cache-keeper",
+  "version": "0.1.0",
+  "description": "Keeps an idle session's prompt cache warm once at 50 minutes, then writes a handoff doc at 100.",
+  "author": { "name": "razzamatazm" }
+}
