@@ -5,6 +5,8 @@ import type { EngineInterface as Engine, Register } from 'claude-code'
 export const PING_AFTER_MS = 50 * 60 * 1000
 export const HANDOFF_AFTER_MS = 50 * 60 * 1000
 
+const NEXT_MARKER = '===NEXT SESSION PROMPT==='
+
 const PING_PROMPT = 'Keep-alive check. Reply with the single word: ok'
 
 const HANDOFF_PROMPT = `Write a handoff document summarising this conversation so a fresh agent with none of this context can continue the work.
@@ -15,7 +17,17 @@ const HANDOFF_PROMPT = `Write a handoff document summarising this conversation s
 - Include a "Suggested skills" section naming the skills the next agent should call the Skill tool for.
 - Redact secrets, API keys, passwords and personal information.
 
-Reply with the Markdown document only, no preamble.`
+Reply with the Markdown document, no preamble. Then, on a line of its own, write ${NEXT_MARKER} followed by the opening prompt for the next session: two to four sentences in the user's voice, addressed to the next agent, naming the concrete next step and what done looks like for it, plus any constraint the agent must not miss. It is pasted after a line telling the agent to read the doc, so do not repeat the doc or mention reading it.`
+
+const FALLBACK_NEXT = 'Continue the work from where it leaves off.'
+
+// Splits the fork's reply into the doc and the tailored opening prompt.
+export function splitReply(reply: string) {
+  const at = reply.lastIndexOf(NEXT_MARKER)
+  if (at === -1) return { doc: reply.trim(), next: FALLBACK_NEXT }
+  const next = reply.slice(at + NEXT_MARKER.length).trim()
+  return { doc: reply.slice(0, at).trim(), next: next || FALLBACK_NEXT }
+}
 
 type Timer = { cancel: () => void }
 
@@ -44,9 +56,10 @@ async function handoff($: Engine) {
   const tmp = ((await $.env.get('TMPDIR')) ?? '/tmp').replace(/\/$/, '')
   const stamp = new Date(await $.clock.now()).toISOString().slice(0, 16).replace(/[:T]/g, '-')
   const path = `${tmp}/handoff-${(await $.session.id()).slice(0, 8)}-${stamp}.md`
-  await $.fs.write(path, reply.text)
+  const { doc, next } = splitReply(reply.text)
+  await $.fs.write(path, doc + '\n')
 
-  const resume = `Read the handoff doc at ${path} and continue the work from where it leaves off.`
+  const resume = `Read the handoff doc at ${path}. ${next}`
   const copied = await $.ui.copy({ text: resume }).catch(() => ({ isCopied: false }))
   await $.session.append({
     message: {

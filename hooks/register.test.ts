@@ -1,6 +1,6 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
-import { HANDOFF_AFTER_MS, PING_AFTER_MS } from './register'
+import { HANDOFF_AFTER_MS, PING_AFTER_MS, splitReply } from './register'
 
 const MIN = 60 * 1000
 const turn = { turnId: 't1', answer: 'done', durationMs: 1, isAborted: false, reason: 'answer' } as const
@@ -16,7 +16,7 @@ function world(on: On) {
     forks.push(e.prompt)
     return { value: {
       isAnswered: true,
-      text: forks.length === 1 ? 'ok' : '# Handoff\nnext step',
+      text: forks.length === 1 ? 'ok' : '# Handoff\nnext step\n\n===NEXT SESSION PROMPT===\nShip the retry fix in api.ts and get CI green.',
       usage: { input_tokens: 10, output_tokens: 1, cache_read_input_tokens: 300000, cache_creation_input_tokens: 0 },
     } }
   })
@@ -46,8 +46,8 @@ test('pings once at 50 idle minutes, writes the handoff at 100', async ($, on) =
 
   await w.clock.advance(HANDOFF_AFTER_MS)
   expect(w.forks).toHaveLength(2)
-  expect(w.writes).toEqual([{ path: '/tmp/x/handoff-abcdef12-2026-10-08-13-40.md', text: '# Handoff\nnext step' }])
-  expect(w.copies[0]).toContain('/tmp/x/handoff-abcdef12-2026-10-08-13-40.md')
+  expect(w.writes).toEqual([{ path: '/tmp/x/handoff-abcdef12-2026-10-08-13-40.md', text: '# Handoff\nnext step\n' }])
+  expect(w.copies).toEqual(['Read the handoff doc at /tmp/x/handoff-abcdef12-2026-10-08-13-40.md. Ship the retry fix in api.ts and get CI green.'])
   const notice = w.session.appended()[0]?.message.content[0]
   expect(notice).toEqual(expect.objectContaining({ type: 'text' }))
   expect(notice?.type === 'text' ? notice.text : '').toContain(w.copies[0])
@@ -66,4 +66,8 @@ test('a new turn resets the idle clock', async ($, on) => {
   await $.turn.complete(turn)
   await w.clock.advance(PING_AFTER_MS)
   expect(w.forks).toHaveLength(1)
+})
+
+test('a reply with no next prompt falls back to a generic one', () => {
+  expect(splitReply('# Handoff\nbody')).toEqual({ doc: '# Handoff\nbody', next: 'Continue the work from where it leaves off.' })
 })

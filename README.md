@@ -6,7 +6,7 @@ After Claude finishes a reply, an idle clock starts:
 
 1. At 50 minutes it replays the conversation with a one-word question, so the API reads it from the cache and the 60-minute window starts over. You pay the cached-read price, not a re-cache.
 2. At 100 minutes, while the cache is still warm from that read, it asks for a handoff doc (goal, current state, next step, decisions, open questions, suggested skills) and saves it to `$TMPDIR/handoff-<session>-<time>.md`.
-3. It posts the path and a ready-to-paste prompt in the chat and copies that prompt to your clipboard. `/clear` (or open a new window) and paste.
+3. In that same call it writes an opening prompt tailored to the conversation: the concrete next step, what done looks like, and any constraint not to miss. It posts the path and that prompt in the chat and copies it to your clipboard. `/clear` (or open a new window) and paste.
 
 Any new message resets the clock, and `/clear` stops it. The ping and the handoff request never enter the transcript. The status line shows when the next step is due.
 
